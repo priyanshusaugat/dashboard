@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wall Dashboard • Leh</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap');
+        :root { --tw-color-primary: #10b981; }
+        body { font-family: 'Inter', system_ui, sans-serif; }
+        .input-focus:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+        .minimal-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .minimal-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        }
+        .live-dot {
+            animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200 min-h-screen">
+    <!-- Minimal Header -->
+    <div class="border-b border-zinc-800 bg-zinc-900">
+        <div class="max-w-screen-2xl mx-auto px-8 py-6 flex items-center justify-between">
+            <div class="flex items-center gap-x-3">
+                <div class="w-8 h-8 bg-emerald-500 rounded-2xl flex items-center justify-center text-xl">🪨</div>
+                <h1 class="text-2xl font-semibold tracking-tight">Wall Performance</h1>
+                <span class="text-emerald-400 text-sm font-medium px-3 py-1 bg-emerald-950 rounded-3xl">Leh • Live Calculator</span>
+            </div>
+            <div class="flex items-center gap-x-8 text-sm">
+                <button onclick="resetToOriginal()" 
+                        class="flex items-center gap-x-2 hover:text-emerald-400 transition-colors">
+                    <span class="text-base">⟳</span> Reset to Original Excel
+                </button>
+                <a href="#" onclick="exportDashboard()" class="flex items-center gap-x-2 hover:text-emerald-400 transition-colors">
+                    Export PDF <span class="text-lg leading-none">↓</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-screen-2xl mx-auto px-8 py-8">
+        <!-- COMMON PARAMETERS - Minimal & Clean -->
+        <div class="bg-zinc-900 rounded-3xl p-8 mb-12">
+            <h2 class="text-lg font-medium text-zinc-400 mb-6 flex items-center gap-x-2">
+                <span class="text-emerald-400">⚙️</span> COMMON PARAMETERS (edit to see live changes)
+            </h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1">Room Length (m)</label>
+                    <input id="common-length" type="number" step="0.1" value="5" 
+                           oninput="updateAll()" class="input-focus bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 w-full text-lg font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1">Room Width (m)</label>
+                    <input id="common-width" type="number" step="0.1" value="3" 
+                           oninput="updateAll()" class="input-focus bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 w-full text-lg font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1">Room Height (m)</label>
+                    <input id="common-height" type="number" step="0.1" value="3" 
+                           oninput="updateAll()" class="input-focus bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 w-full text-lg font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1">Avg. Temp Difference (°C)</label>
+                    <input id="common-temp" type="number" step="0.5" value="15" 
+                           oninput="updateAll()" class="input-focus bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 w-full text-lg font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1">Hours Used / Day</label>
+                    <input id="common-hours" type="number" step="1" value="12" 
+                           oninput="updateAll()" class="input-focus bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 w-full text-lg font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1">Winter Days</label>
+                    <input id="common-days" type="number" step="1" value="150" 
+                           oninput="updateAll()" class="input-focus bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 w-full text-lg font-medium">
+                </div>
+            </div>
+        </div>
+
+        <!-- THREE WALL CARDS - Live Editable -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12" id="wall-cards">
+            <!-- Populated by JS -->
+        </div>
+
+        <!-- LIVE RESULTS TABLE -->
+        <div class="bg-zinc-900 rounded-3xl p-8 mb-12">
+            <h2 class="text-lg font-medium text-zinc-400 mb-6">Live Results • All Metrics Update Instantly</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm" id="results-table">
+                    <!-- Populated by JS -->
+                </table>
+            </div>
+        </div>
+
+        <!-- CHARTS SECTION -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-zinc-900 rounded-3xl p-8">
+                <h3 class="font-medium mb-6 text-zinc-400">Hourly Heat Loss (Watts)</h3>
+                <canvas id="heatChart" class="h-80"></canvas>
+            </div>
+            <div class="bg-zinc-900 rounded-3xl p-8">
+                <h3 class="font-medium mb-6 text-zinc-400">20-Year Energy Cost (₹)</h3>
+                <canvas id="twentyYearChart" class="h-80"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== DEFAULT DATA FROM YOUR EXCEL ====================
+        let walls = {
+            rammed: {
+                name: "Insulated Rammed Earth",
+                color: "#10b981",
+                uValue: 1.31,
+                thickness: 0.6,
+                energyCost: 4.85,
+                costPerM3: 10000,
+                // computed below
+            },
+            adobe: {
+                name: "Insulated Adobe (geomesh)",
+                color: "#eab308",
+                uValue: 0.99,
+                thickness: 0.6,
+                energyCost: 3.45,
+                costPerM3: 10016,
+            },
+            concrete: {
+                name: "Solid Concrete",
+                color: "#64748b",
+                uValue: 9.09,
+                thickness: 0.3,
+                energyCost: 5.6,
+                costPerM3: 11444,
+            }
+        };
+
+        let common = {
+            length: 5,
+            width: 3,
+            height: 3,
+            tempDiff: 15,
+            hours: 12,
+            days: 150
+        };
+
+        // ==================== CALCULATION ENGINE ====================
+        function calculateWall(wallKey) {
+            const wall = walls[wallKey];
+            const totalSurface = 2 * common.height * (common.length + common.width) + (common.length * common.width); // 63 m² at defaults
+
+            const hourly = wall.uValue * totalSurface * common.tempDiff;
+            const dailyKwh = (hourly * common.hours) / 1000;
+            const winterUnits = dailyKwh * common.days;
+            const annualCost = winterUnits * wall.energyCost;
+
+            // Construction volume (vertical walls only × thickness — consistent for dynamic comparison)
+            const verticalWallArea = 2 * common.height * (common.length + common.width);
+            const volume = verticalWallArea * wall.thickness;
+            const constructionCost = volume * wall.costPerM3;
+
+            return {
+                totalSurface: totalSurface.toFixed(1),
+                hourly: hourly.toFixed(1),
+                dailyKwh: dailyKwh.toFixed(2),
+                winterUnits: winterUnits.toFixed(0),
+                annualCost: annualCost.toFixed(0),
+                volume: volume.toFixed(1),
+                constructionCost: constructionCost.toFixed(0)
+            };
+        }
+
+        function getAllResults() {
+            const results = {};
+            Object.keys(walls).forEach(key => {
+                results[key] = calculateWall(key);
+            });
+            return results;
+        }
+
+        // ==================== RENDER WALL CARDS ====================
+        function renderWallCards() {
+            const container = document.getElementById('wall-cards');
+            container.innerHTML = Object.keys(walls).map(key => {
+                const wall = walls[key];
+                const res = calculateWall(key);
+                return `
+                <div class="minimal-card bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <div class="inline-block w-3 h-3 rounded-full" style="background-color: ${wall.color}"></div>
+                            <h3 class="font-semibold text-xl mt-1">${wall.name}</h3>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-zinc-400">U-Value</div>
+                            <input type="number" step="0.01" value="${wall.uValue}" 
+                                   oninput="updateWall('${key}', 'uValue', this.value)" 
+                                   class="input-focus bg-transparent text-4xl font-semibold w-24 text-right">
+                        </div>
+                    </div>
+
+                    <div class="space-y-5 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-zinc-400">Thickness (m)</span>
+                            <input type="number" step="0.01" value="${wall.thickness}" 
+                                   oninput="updateWall('${key}', 'thickness', this.value)" 
+                                   class="input-focus bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-1 w-24 text-right">
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-zinc-400">Energy Cost (₹/kWh)</span>
+                            <input type="number" step="0.01" value="${wall.energyCost}" 
+                                   oninput="updateWall('${key}', 'energyCost', this.value)" 
+                                   class="input-focus bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-1 w-24 text-right">
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-zinc-400">Cost per m³ (₹)</span>
+                            <input type="number" step="1" value="${wall.costPerM3}" 
+                                   oninput="updateWall('${key}', 'costPerM3', this.value)" 
+                                   class="input-focus bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-1 w-24 text-right">
+                        </div>
+                    </div>
+
+                    <div class="mt-8 pt-8 border-t border-zinc-800 grid grid-cols-2 gap-y-4 text-xs">
+                        <div><span class="text-zinc-400">Hourly Loss</span><br><span class="font-semibold text-2xl">${res.hourly} W</span></div>
+                        <div><span class="text-zinc-400">Annual Cost</span><br><span class="font-semibold text-2xl">₹${res.annualCost}</span></div>
+                        <div><span class="text-zinc-400">Construction Cost</span><br><span class="font-semibold text-2xl">₹${res.constructionCost}</span></div>
+                        <div><span class="text-zinc-400">20-Year Energy</span><br><span class="font-semibold text-2xl">₹${(res.annualCost * 20).toFixed(0)}</span></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // ==================== RENDER RESULTS TABLE ====================
+        function renderResultsTable() {
+            const results = getAllResults();
+            const tableHTML = `
+            <thead>
+                <tr class="border-b border-zinc-800">
+                    <th class="text-left py-4 px-6 font-medium text-zinc-400">Metric</th>
+                    <th class="text-center py-4 px-6 font-medium text-emerald-400">Rammed Earth</th>
+                    <th class="text-center py-4 px-6 font-medium text-yellow-400">Adobe Brick</th>
+                    <th class="text-center py-4 px-6 font-medium text-slate-400">Concrete</th>
+                </tr>
+            </thead>
+            <tbody class="text-sm">
+                <tr class="border-b border-zinc-800"><td class="py-4 px-6 font-medium">Total Surface Area (m²)</td>
+                    <td class="text-center">${results.rammed.totalSurface}</td>
+                    <td class="text-center">${results.adobe.totalSurface}</td>
+                    <td class="text-center">${results.concrete.totalSurface}</td>
+                </tr>
+                <tr class="border-b border-zinc-800"><td class="py-4 px-6 font-medium">Hourly Heat Loss (W)</td>
+                    <td class="text-center font-semibold">${results.rammed.hourly}</td>
+                    <td class="text-center font-semibold">${results.adobe.hourly}</td>
+                    <td class="text-center font-semibold">${results.concrete.hourly}</td>
+                </tr>
+                <tr class="border-b border-zinc-800"><td class="py-4 px-6 font-medium">Daily kWh</td>
+                    <td class="text-center">${results.rammed.dailyKwh}</td>
+                    <td class="text-center">${results.adobe.dailyKwh}</td>
+                    <td class="text-center">${results.concrete.dailyKwh}</td>
+                </tr>
+                <tr class="border-b border-zinc-800"><td class="py-4 px-6 font-medium">Winter Units (kWh)</td>
+                    <td class="text-center">${results.rammed.winterUnits}</td>
+                    <td class="text-center">${results.adobe.winterUnits}</td>
+                    <td class="text-center">${results.concrete.winterUnits}</td>
+                </tr>
+                <tr class="border-b border-zinc-800"><td class="py-4 px-6 font-medium">Annual Heating Cost (₹)</td>
+                    <td class="text-center">${results.rammed.annualCost}</td>
+                    <td class="text-center">${results.adobe.annualCost}</td>
+                    <td class="text-center">${results.concrete.annualCost}</td>
+                </tr>
+                <tr class="border-b border-zinc-800"><td class="py-4 px-6 font-medium">Construction Cost (₹)</td>
+                    <td class="text-center">${results.rammed.constructionCost}</td>
+                    <td class="text-center">${results.adobe.constructionCost}</td>
+                    <td class="text-center">${results.concrete.constructionCost}</td>
+                </tr>
+                <tr><td class="py-4 px-6 font-medium">20-Year Energy Cost (₹)</td>
+                    <td class="text-center font-semibold">${(results.rammed.annualCost * 20)}</td>
+                    <td class="text-center font-semibold">${(results.adobe.annualCost * 20)}</td>
+                    <td class="text-center font-semibold">${(results.concrete.annualCost * 20)}</td>
+                </tr>
+            </tbody>`;
+            document.getElementById('results-table').innerHTML = tableHTML;
+        }
+
+        // ==================== CHARTS ====================
+        let heatChartInstance = null;
+        let twentyChartInstance = null;
+
+        function updateCharts() {
+            const results = getAllResults();
+            const labels = ["Rammed Earth", "Adobe Brick", "Concrete"];
+
+            // Heat Loss Chart
+            if (heatChartInstance) heatChartInstance.destroy();
+            heatChartInstance = new Chart(document.getElementById('heatChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Hourly Heat Loss (W)',
+                        data: [results.rammed.hourly, results.adobe.hourly, results.concrete.hourly],
+                        backgroundColor: [walls.rammed.color, walls.adobe.color, walls.concrete.color],
+                        borderRadius: 8
+                    }]
+                },
+                options: { plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#27272a' } } } }
+            });
+
+            // 20-Year Chart
+            if (twentyChartInstance) twentyChartInstance.destroy();
+            twentyChartInstance = new Chart(document.getElementById('twentyYearChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '20-Year Energy Cost (₹)',
+                        data: [
+                            results.rammed.annualCost * 20,
+                            results.adobe.annualCost * 20,
+                            results.concrete.annualCost * 20
+                        ],
+                        backgroundColor: [walls.rammed.color, walls.adobe.color, walls.concrete.color],
+                        borderRadius: 8
+                    }]
+                },
+                options: { plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#27272a' }, ticks: { callback: v => '₹' + Number(v).toLocaleString() } } } }
+            });
+        }
+
+        // ==================== LIVE UPDATE ENGINE ====================
+        function updateWall(key, field, value) {
+            walls[key][field] = parseFloat(value) || 0;
+            renderWallCards();
+            renderResultsTable();
+            updateCharts();
+        }
+
+        function updateAll() {
+            common.length = parseFloat(document.getElementById('common-length').value) || 5;
+            common.width = parseFloat(document.getElementById('common-width').value) || 3;
+            common.height = parseFloat(document.getElementById('common-height').value) || 3;
+            common.tempDiff = parseFloat(document.getElementById('common-temp').value) || 15;
+            common.hours = parseFloat(document.getElementById('common-hours').value) || 12;
+            common.days = parseFloat(document.getElementById('common-days').value) || 150;
+
+            renderWallCards();
+            renderResultsTable();
+            updateCharts();
+        }
+
+        function resetToOriginal() {
+            // Restore original Excel values
+            walls.rammed.uValue = 1.31; walls.rammed.thickness = 0.6; walls.rammed.energyCost = 4.85; walls.rammed.costPerM3 = 10000;
+            walls.adobe.uValue = 0.99; walls.adobe.thickness = 0.6; walls.adobe.energyCost = 3.45; walls.adobe.costPerM3 = 10016;
+            walls.concrete.uValue = 9.09; walls.concrete.thickness = 0.3; walls.concrete.energyCost = 5.6; walls.concrete.costPerM3 = 11444;
+            
+            common.length = 5; common.width = 3; common.height = 3; common.tempDiff = 15; common.hours = 12; common.days = 150;
+
+            document.getElementById('common-length').value = 5;
+            document.getElementById('common-width').value = 3;
+            document.getElementById('common-height').value = 3;
+            document.getElementById('common-temp').value = 15;
+            document.getElementById('common-hours').value = 12;
+            document.getElementById('common-days').value = 150;
+
+            renderWallCards();
+            renderResultsTable();
+            updateCharts();
+        }
+
+        function exportDashboard() {
+            alert("✅ In a real dashboard this would generate a beautiful PDF.\n\n(For now, just use browser print → Save as PDF)");
+            window.print();
+        }
+
+        // ==================== START DASHBOARD ====================
+        window.onload = function () {
+            renderWallCards();
+            renderResultsTable();
+            updateCharts();
+            
+            // Tailwind ready
+            console.log('%c✅ Minimalist Dynamic Wall Dashboard ready — every value is live!', 'color:#10b981; font-size:13px');
+        };
+    </script>
+</body>
+</html>
